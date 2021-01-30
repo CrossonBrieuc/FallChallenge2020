@@ -1,3 +1,5 @@
+
+
 // - - START VARIABLES - -
 
 let tour=0
@@ -9,7 +11,7 @@ const reducer = (accumulator, currentValue) => accumulator + currentValue;
 const rubi_importance=3   //immportance des rubis dans les calculs de chemin
 const max_reccurence=15  //limite de reccurence pour path_finding()
 const nb_learn=12     //nombre de sort apris en début de partie
-const path_test_nbr=500    //nombre de test de chemin par potion
+const path_test_nbr=300    //nombre de test de chemin par potion
 
 
 
@@ -51,6 +53,56 @@ function place_maker(brew_action, spell_action,inv){
 }
 
 
+function action_rec(start_inv, sec_inv, inv, spell_list, reverse, cmpt){
+    /*
+        fonction reccursive pour path_finding()
+    */
+    cmpt+=1;
+    let inc=0;
+    let choose_spell='NA';
+    let action_list="";
+
+    //cherche le 1er el manquant
+    if (reverse==false){
+        inc=inv.indexOf(Math.min(...inv));
+    }else{
+        inc=sec_inv.indexOf(Math.min(...sec_inv));
+    }
+
+    //choisi un sort aléatoire qui donne de l'el inc
+    const lng=spell_list[inc].length;
+    for (let i=0;i<lng;i++){
+        let x=spell_list[inc][rdmInt(lng)];
+        if (start_inv.reduce(reducer)+x.cost.reduce(reducer)<11 && x.cost[inc]>0){
+            choose_spell=x;
+            break;
+        }
+    }
+    
+    //test si un sort a été trouvé
+    if (choose_spell=='NA' || cmpt==max_reccurence){
+        return 'NA';
+    }else{
+        sec_inv=[...start_inv]
+
+        for (let i=0;i<4;i++){
+            inv[i]+=choose_spell.cost[i];
+            sec_inv[i]+=choose_spell.cost[i];
+        }
+
+        action_list+="CAST "+choose_spell.id+"|";
+
+        if (choose_spell.ready==false){
+            action_list+=('REST|');
+        }
+        if (Math.min(...inv)<0){
+            action_list+=action_rec(start_inv, sec_inv, inv, spell_list, false, cmpt);
+        }else if (Math.min(...sec_inv)<0){
+            action_list+=action_rec(start_inv, sec_inv, inv, spell_list, true, cmpt);
+        }
+        return action_list;
+    }
+}
 
 function path_finding(potion_list, spell_list, inv){
     /*
@@ -63,8 +115,6 @@ function path_finding(potion_list, spell_list, inv){
     let path_list=[];
     let path_value=-99999;
     let sort_spell_list=[[],[],[],[]];
-    
-
 
     spell_list.forEach(x=>{
         for (let i=0;i<4;i++){
@@ -73,63 +123,9 @@ function path_finding(potion_list, spell_list, inv){
             }
         }
     });
-
-    function action_rec(sec_inv, newinv, reverse, cmpt){
-    /*
-        fonction reccursive pour path_finding()
-    */
-    cmpt+=1;
-    let inc=0;
-    let choose_spell='NA';
-    let action_list="";
-
-    //cherche le 1er el manquant
-    if (reverse==false){
-        inc=newinv.indexOf(Math.min(newinv[0],newinv[1],newinv[2],newinv[3]));
-    }else{
-        inc=sec_inv.indexOf(Math.min(sec_inv[0],sec_inv[1],sec_inv[2],sec_inv[3]));
-    }
-
-    //choisi un sort aléatoire qui donne de l'el inc
-    const lng=sort_spell_list[inc].length;
-    for (let i=0;i<lng;i++){
-        let x=sort_spell_list[inc][rdmInt(lng)];
-        if (inv.reduce(reducer)+x.cost.reduce(reducer)<11 && x.cost[inc]>0){
-            choose_spell=x;
-            break;
-        }
-    }
-    
-    //test si un sort a été trouvé
-    if (choose_spell=='NA' || cmpt==max_reccurence){
-        return 'NA';
-    }else{
-        sec_inv=[...inv]
-
-        for (let i=0;i<4;i++){
-            newinv[i]+=choose_spell.cost[i];
-            sec_inv[i]+=choose_spell.cost[i];
-        }
-
-        action_list+="CAST "+choose_spell.id+"|";
-
-        if (choose_spell.ready==false){
-            action_list+=('REST|');
-        }
-        if (Math.min(newinv[0],newinv[1],newinv[2],newinv[3])<0){
-            action_list+=action_rec(sec_inv, newinv, false, cmpt);
-        }else if (Math.min(sec_inv[0],sec_inv[1],sec_inv[2],sec_inv[3])<0){
-            action_list+=action_rec(sec_inv, newinv, true, cmpt);
-        }
-        return action_list;
-    }
-}
-
-
-
     potion_list.forEach(x=>{
-        let t0 = new Date().getTime();
         let path=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,'NA'];
+
         let objectif=[];
         for (let i=0;i<4;i++){
             objectif.push(x.cost[i]+inv[i]);
@@ -141,7 +137,7 @@ function path_finding(potion_list, spell_list, inv){
             for (let i=0;i<path_test_nbr;i++){
                 let newInv=[...inv];
                 let newObj=[...objectif];
-                path_test=action_rec(newInv, newObj, false, 0).split('|');
+                path_test=action_rec(inv, newInv, newObj, sort_spell_list, false, 0).split('|');
                 if (path_test.length<path.length && path_test[path_test.length-1] != 'NA'){
                     path_test=path_test.splice(0,path_test.length-1)
                     path=path_test;
@@ -154,8 +150,6 @@ function path_finding(potion_list, spell_list, inv){
             path_value=current_value
             path_list=path
         }
-        let t1 = new Date().getTime();
-        console.error("action_rec time : " + (t1 - t0) + " ms.");
     });
     if (path_list.length==0){
         path=place_maker(potion_list, spell_list,inv);
@@ -196,7 +190,6 @@ while (true) {
     // - - INPUT - -
 
     const actionCount = int(readline()); // the number of spells and recipes in play
-    let t0 = new Date().getTime();
     for (let i = 0; i < actionCount; i++) {
         var inputs = readline().split(' ');
         const actionId = int(inputs[0]); // the unique ID of this spell or recipe
@@ -259,8 +252,7 @@ while (true) {
     // - - DEBUG - -
 
     console.error(me,enemy);
-    let t1 = new Date().getTime();
-    console.error("time : " + (t1 - t0) + " ms.");
+
 
     // - - OUTPUT - -
 
